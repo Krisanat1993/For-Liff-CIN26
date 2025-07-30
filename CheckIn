@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Code Check-In</title>
+    <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/minified/html5-qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .hidden {
+            display: none;
+        }
+        #loading-message {
+            margin-top: 40px;
+            font-size: 1.2em;
+        }
+        header {
+            margin-bottom: 20px;
+        }
+        header img {
+            width: 80px;
+        }
+        section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+        label {
+            display: block;
+            margin-bottom: 12px;
+            font-weight: bold;
+        }
+        input,
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-family: 'Kanit', sans-serif;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            background-color: #00B900;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #009900;
+        }
+        .message {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 1em;
+            color: #555;
+            line-height: 1.5;
+        }
+        #qr-reader {
+            margin-top: 20px;
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.6);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: auto;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: left;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .modal-content h2 {
+            text-align: center;
+            margin-top: 0;
+        }
+        .modal-content p {
+            margin: 10px 0;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: space-evenly;
+            margin-top: 25px;
+            gap: 15px;
+        }
+        .modal-buttons button {
+            width: 100%;
+            margin: 0;
+        }
+        #cancelPhoneButton, #cancelScanButton, #retryScanButton {
+            background-color: #f44336;
+        }
+        #cancelPhoneButton:hover, #cancelScanButton:hover, #retryScanButton:hover {
+            background-color: #d32f2f;
+        }
+        #confirmPhoneButton, #confirmScanButton {
+             background-color: #00B900;
+        }
+        #retryLocationButton {
+             background-color: #007bff;
+        }
+        #retryLocationButton:hover {
+             background-color: #0056b3;
+        }
+        #showInstructionsButton {
+            background-color: #ff9800;
+        }
+        #showInstructionsButton:hover {
+            background-color: #f57c00;
+        }
+
+        /* --- [โค้ดใหม่] CSS สำหรับหน้าคำแนะนำ --- */
+        #locationInstructions {
+            text-align: center;
+        }
+        #locationInstructions h3 {
+            margin-bottom: 15px;
+        }
+        #locationInstructions p {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: left;
+            line-height: 1.7;
+        }
+        #backToPermissionModal {
+            margin-top: 20px;
+            background-color: #6c757d;
+        }
+        #backToPermissionModal:hover {
+            background-color: #5a6268;
+        }
+        /* --- จบส่วนโค้ดใหม่ --- */
+
+        .progress-bar-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 15px;
+            height: 25px;
+        }
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: #00B900;
+            transition: width 0.5s ease-in-out;
+        }
+        .comparison-container {
+            margin-top: 20px;
+            text-align: left;
+            background-color: #fffbe6;
+            border: 1px solid #ffe58f;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .comparison-container h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #d32f2f;
+            text-align: center;
+            font-size: 1.2em;
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 8px 12px;
+            align-items: center;
+        }
+        .comparison-grid strong {
+            font-weight: bold;
+        }
+        .comparison-grid .mismatch {
+            color: #d32f2f;
+            font-weight: bold;
+            background-color: #ffebee;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+         .comparison-grid .match {
+            color: #00B900;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-message">
+        <p>กำลังเตรียมแอปพลิเคชัน กรุณารอสักครู่...</p>
+    </div>
+
+    <header id="header" class="hidden">
+        <img src="https://drive.google.com/thumbnail?id=1biw0LeK_X0ntKPdH4-8XaPUcl1yGDl59" alt="Logo" />
+    </header>
+
+    <section id="form-section" class="hidden">
+        <h1>ระบบลงเวลาเข้าเรียน</h1>
+        <p>ณ สศท.สปท.</p>
+        <form id="dataForm">
+            <label for="phone">โปรดกรอกหมายเลขโทรศัพท์</label>
+            <input type="tel" id="phone" name="Phone" required pattern="^0[689]\d{8}$" title="กรุณากรอกเบอร์โทรศัพท์มือถือ 10 หลัก" />
+            <button type="button" id="nextButton">ขั้นตอนถัดไป</button>
+        </form>
+    </section>
+
+    <section id="qr-section" class="hidden">
+        <h1>แสกน QR Code เพื่อประทับเวลา</h1>
+        <div id="qr-reader"></div>
+        <div id="responseMessage" style="font-weight: bold;"></div>
+        
+        <div class="progress-bar-container hidden" id="progressBarContainer">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div id="progress-steps" class="message hidden"></div>
+        <div id="comparison-details" class="hidden"></div>
+        <button id="retryScanButton" class="hidden" style="margin-top: 20px;">สแกนใหม่อีกครั้ง</button>
+    </section>
+
+    <section id="success-section" class="hidden">
+        <h1>รายงานการลงเวลา</h1>
+        <p class="message" id="successMessage"></p>
+    </section>
+
+    <div id="phoneConfirmModal" class="modal">
+        <div class="modal-content">
+            <h2>ยืนยันข้อมูล</h2>
+            <p>หมายเลขโทรศัพท์: <strong id="phoneDisplay"></strong></p>
+            <div class="modal-buttons">
+                <button id="cancelPhoneButton">ยกเลิก</button>
+                <button id="confirmPhoneButton">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="scanSummaryModal" class="modal">
+        <div class="modal-content">
+            <h2>สรุปผลการสแกน</h2>
+            <div id="summaryText" style="white-space: pre-wrap;"></div>
+            <div class="modal-buttons">
+                <button id="cancelScanButton">สแกนใหม่</button>
+                <button id="confirmScanButton">ยืนยันและส่งข้อมูล</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="locationPermissionModal" class="modal">
+      <div class="modal-content">
+        <div id="permission-prompt">
+            <h2>จำเป็นต้องใช้ตำแหน่งของคุณ 📍</h2>
+            <p>แอปพลิเคชันนี้ต้องการการเข้าถึงตำแหน่งปัจจุบันเพื่อยืนยันการลงเวลา โปรดอนุญาตการเข้าถึงตำแหน่ง</p>
+            <p id="locationErrorText" style="color: #d32f2f; font-weight: bold; text-align: center;"></p>
+            <div class="modal-buttons">
+                <button id="showInstructionsButton">ดูวิธีเปิด</button>
+                <button id="retryLocationButton">ลองอีกครั้ง</button>
+            </div>
+        </div>
+        
+        <div id="locationInstructions" class="hidden">
+            <h3 id="instructionsHeader"></h3>
+            <p id="instructionsText" style="font-size: 15px;"></p>
+            <button id="backToPermissionModal" type="button">กลับ</button>
+        </div>
+        </div>
+    </div>
+
+    <script>
+        // =================================================================
+        // โค้ดที่เพิ่มเข้ามาเพื่อแก้ไขปัญหา Cache ของ LIFF
+        // =================================================================
+        const originalFetch = window.fetch;
+        window.fetch = async function(url, options) {
+            if (url.toString().startsWith('https://liffsdk.line-scdn.net/') && url.toString().endsWith('.json')) {
+                url = url + '?ts=' + Math.random();
+            }
+            return originalFetch(url, options);
+        };
+        // =================================================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // =================================================================
+            // กรุณาแก้ไขค่า 2 บรรทัดนี้ให้เป็นของคุณ
+            // =================================================================
+            const liffId = "2006142476-expQgry9"; // ❗ LIFF ID ของคุณ
+            const scriptURL = 'https://script.google.com/macros/s/AKfycby8iE0HQ4V_8rgjHNalxp1bM4VFxxz5JBXkUc0qpqkLxcYxM1iE5vmhQO0wCoNG1eIfCg/exec'; // ❗ URL ของ GAS
+            // =================================================================
+            let formData = {};
+            let qrReaderInstance = null;
+            let summaryMessageForLiff = '';
+
+            const loadingMessage = document.getElementById('loading-message');
+            const header = document.getElementById('header');
+            const phoneModal = document.getElementById('phoneConfirmModal');
+            const scanSummaryModal = document.getElementById('scanSummaryModal');
+            const responseMessage = document.getElementById('responseMessage');
+            const progressBarContainer = document.getElementById('progressBarContainer');
+            const progressBar = document.getElementById('progressBar');
+            
+            const progressSteps = document.getElementById('progress-steps');
+            const comparisonDetails = document.getElementById('comparison-details');
+            const retryScanButton = document.getElementById('retryScanButton');
+            
+            // --- [โค้ดใหม่] Element ใน Modal ที่ปรับปรุง ---
+            const locationModal = document.getElementById('locationPermissionModal');
+            const permissionPrompt = document.getElementById('permission-prompt');
+            const locationErrorText = document.getElementById('locationErrorText');
+            const showInstructionsButton = document.getElementById('showInstructionsButton');
+            const locationInstructions = document.getElementById('locationInstructions');
+            const instructionsHeader = document.getElementById('instructionsHeader');
+            const instructionsText = document.getElementById('instructionsText');
+            const backToPermissionModal = document.getElementById('backToPermissionModal');
+            // --- จบส่วนโค้ดใหม่ ---
+
+            async function main() {
+                try {
+                    await liff.init({ liffId });
+                } catch (err) {
+                    console.error("LIFF Initialization failed:", err);
+                    loadingMessage.innerText = "เกิดข้อผิดพลาดในการเริ่มต้น LIFF";
+                    return;
+                }
+
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                } else {
+                    loadingMessage.classList.add('hidden');
+                    header.classList.remove('hidden');
+                    showSection('form-section');
+                }
+            }
+            
+            async function getDeviceInfo() {
+                let deviceUUID, displayName = "Unknown";
+                try {
+                    const profile = await liff.getProfile();
+                    deviceUUID = profile.userId;
+                    displayName = profile.displayName;
+                } catch (e) {
+                    deviceUUID = `no-liff-${crypto.randomUUID()}`;
+                }
+                return { uuid: deviceUUID, displayName: displayName };
+            }
+
+            function getCurrentLocation() {
+                return new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) {
+                        return reject(new Error("เบราว์เซอร์ของคุณไม่รองรับ Geolocation"));
+                    }
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            if (typeof position.coords.latitude === 'number' && typeof position.coords.longitude === 'number') {
+                                resolve(position);
+                            } else {
+                                reject(new Error("ไม่สามารถรับค่าพิกัดที่ถูกต้องได้"));
+                            }
+                        },
+                        (error) => {
+                            let errorMessage;
+                            switch(error.code) {
+                                case error.PERMISSION_DENIED:
+                                    errorMessage = "คุณปฏิเสธการเข้าถึงตำแหน่ง";
+                                    break;
+                                case error.POSITION_UNAVAILABLE:
+                                    errorMessage = "ข้อมูลตำแหน่งไม่พร้อมใช้งาน";
+                                    break;
+                                case error.TIMEOUT:
+                                    errorMessage = "หมดเวลาในการร้องขอตำแหน่ง";
+                                    break;
+                                default:
+                                    errorMessage = "เกิดข้อผิดพลาดที่ไม่รู้จักในการรับตำแหน่ง";
+                                    break;
+                            }
+                            reject(new Error(errorMessage));
+                        },
+                        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                    );
+                });
+            }
+
+            const showSection = (sectionId) => {
+                document.querySelectorAll('section').forEach(section => {
+                    section.classList.toggle('hidden', section.id !== sectionId);
+                });
+            };
+
+            function callApi(action, params) {
+                return new Promise((resolve, reject) => {
+                    const callbackName = `jsonpCallback_${Date.now()}${Math.floor(Math.random() * 1000)}`;
+                    window[callbackName] = (result) => {
+                        delete window[callbackName];
+                        document.body.removeChild(scriptElement);
+                        resolve(result);
+                    };
+                    const url = new URL(scriptURL);
+                    url.searchParams.append('action', action);
+                    for (const key in params) {
+                        url.searchParams.append(key, params[key]);
+                    }
+                    url.searchParams.append('callback', callbackName);
+                    const scriptElement = document.createElement('script');
+                    scriptElement.src = url.toString();
+                    scriptElement.onerror = () => {
+                        delete window[callbackName];
+                        document.body.removeChild(scriptElement);
+                        reject(new Error("API call failed. Check network or script URL."));
+                    };
+                    document.body.appendChild(scriptElement);
+                });
+            }
+
+            async function handleQrScan(decodedText) {
+                if (qrReaderInstance) {
+                    await qrReaderInstance.stop().catch(err => console.error("Failed to stop scanner:", err));
+                    qrReaderInstance = null;
+                }
+                if (!decodedText || !decodedText.trim()) {
+                    responseMessage.innerText = 'QR code ไม่ถูกต้อง โปรดสแกนใหม่อีกครั้ง';
+                    setTimeout(startQRScanner, 2500);
+                    return;
+                }
+                formData.Secrete = decodedText.trim();
+                const now = new Date();
+                const thaiDate = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
+                const thaiTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                
+                summaryMessageForLiff = `ลงเวลาสำเร็จ\n--------------------\nคุณ: ${formData.Name}\nเบอร์โทร: ${formData.Phone}\nวันที่: ${thaiDate}\nเวลา: ${thaiTime} น.`;
+                document.getElementById('summaryText').innerText = summaryMessageForLiff;
+                scanSummaryModal.style.display = 'flex';
+                showSection('qr-section');
+            }
+            
+            async function proceedWithSubmission() {
+                scanSummaryModal.style.display = 'none';
+                responseMessage.innerText = 'กรุณารอสักครู่...';
+                
+                progressBar.style.width = '0%';
+                progressBarContainer.classList.remove('hidden');
+                progressSteps.classList.remove('hidden');
+                comparisonDetails.classList.add('hidden');
+                retryScanButton.classList.add('hidden');
+
+                try {
+                    progressSteps.innerText = 'ขั้นตอนที่ 1/3: กำลังส่งข้อมูลเพื่อบันทึก...';
+                    progressBar.style.width = '10%';
+                    const addResult = await callApi('add', { text: JSON.stringify(formData) });
+                    if (addResult.status !== 'added') throw addResult;
+                    progressBar.style.width = '33%';
+                    
+                    progressSteps.innerText = `ขั้นตอนที่ 2/3: บันทึกสำเร็จ! กำลังรอเพื่อตรวจสอบข้อมูล...`;
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    progressBar.style.width = '66%';
+
+                    progressSteps.innerText = 'ขั้นตอนที่ 3/3: กำลังดึงข้อมูลมาเปรียบเทียบ...';
+                    const checkParams = { 
+                        name: addResult.nameForCheck, 
+                        date: addResult.dateForCheck,
+                        secrete: addResult.secreteForCheck
+                    };
+                    const checkResult = await callApi('check', checkParams);
+                    progressBar.style.width = '100%';
+
+                    if (checkResult.status === 'found') {
+                        progressSteps.innerText = '✅ ตรวจสอบข้อมูลถูกต้อง!';
+                        await showSuccessAndSendMessage();
+                    } else {
+                        throw checkResult;
+                    }
+                } catch (error) {
+                    console.error('Process failed:', error);
+                    progressBarContainer.classList.add('hidden');
+                    progressSteps.classList.add('hidden');
+                    responseMessage.innerText = '';
+
+                    if (error.searchCriteria && error.foundData) {
+                        displayComparison(error.searchCriteria, error.foundData);
+                    } else {
+                        comparisonDetails.innerHTML = `<div class="comparison-container"><h4>เกิดข้อผิดพลาด</h4><p style="text-align:center;">${error.message || 'การดำเนินการล้มเหลว'}</p></div>`;
+                        comparisonDetails.classList.remove('hidden');
+                    }
+                    retryScanButton.classList.remove('hidden');
+                }
+            }
+
+            function displayComparison(sent, found) {
+                let comparisonHTML = `
+                    <div class="comparison-container">
+                        <h4>❌ ตรวจพบข้อมูลไม่ตรงกัน</h4>
+                        <div class="comparison-grid">
+                            <strong>หัวข้อ</strong> <strong>ข้อมูลที่พบในระบบ</strong>`;
+                
+                const fields = {'Name': 'ชื่อ', 'Date': 'วันที่', 'Secrete': 'รหัส QR'};
+                
+                for (const key in fields) {
+                    const label = fields[key];
+                    const sentValue = sent[key.toLowerCase()];
+                    const foundValue = found[key];
+                    const isMismatch = sentValue !== foundValue;
+                    
+                    comparisonHTML += `
+                        <strong>${label}</strong>
+                        <span class="${isMismatch ? 'mismatch' : 'match'}">${foundValue || 'N/A'}</span>`;
+                }
+
+                comparisonHTML += '</div></div>';
+                comparisonDetails.innerHTML = comparisonHTML;
+                comparisonDetails.classList.remove('hidden');
+            }
+            
+            async function showSuccessAndSendMessage() {
+                showSection('success-section');
+                document.getElementById('successMessage').innerText = `ตรวจสอบข้อมูลสำเร็จ! กำลังส่งข้อความยืนยัน...`;
+                
+                if (liff.isInClient()) {
+                    try {
+                        await liff.sendMessages([{ type: 'text', text: summaryMessageForLiff }]);
+                        document.getElementById('successMessage').innerText = 'ส่งข้อความสำเร็จ! จะปิดหน้าต่างใน 3 วินาที';
+                        setTimeout(() => liff.closeWindow(), 3000);
+                    } catch (err) {
+                        document.getElementById('successMessage').innerText = `เกิดข้อผิดพลาดในการส่งข้อความ: ${err.message}`;
+                    }
+                } else {
+                    document.getElementById('successMessage').innerText = `ลงเวลาสำเร็จ (อยู่นอก LINE)\n\n${summaryMessageForLiff}`;
+                }
+            }
+
+            async function startQRScanner() {
+                responseMessage.innerHTML = '';
+                progressBarContainer.classList.add('hidden');
+                progressSteps.classList.add('hidden');
+                comparisonDetails.classList.add('hidden');
+                retryScanButton.classList.add('hidden');
+                progressBar.style.width = '0%';
+                showSection('qr-section');
+                document.getElementById('qr-reader').innerHTML = '';
+
+                if (liff.isInClient() && liff.isApiAvailable('scanCodeV2')) {
+                    try {
+                        const result = await liff.scanCodeV2();
+                        if (result.value) await handleQrScan(result.value);
+                    } catch (err) {
+                        if (err.code === "USER_CANCEL") showSection('form-section');
+                        else alert('เกิดข้อผิดพลาดในการใช้กล้อง LINE');
+                    }
+                } else {
+                    responseMessage.innerText = 'กำลังเปิดกล้อง...';
+                    qrReaderInstance = new Html5Qrcode('qr-reader');
+                    qrReaderInstance.start(
+                        { facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 250 } },
+                        (decodedText) => handleQrScan(decodedText), () => {}
+                    ).catch(err => {
+                        responseMessage.innerText = 'ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการเข้าถึง';
+                    });
+                }
+            }
+
+            // --- [โค้ดใหม่] ฟังก์ชันแสดงคำแนะนำ ---
+            function showLocationInstructions() {
+                const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+                permissionPrompt.classList.add('hidden');
+
+                if (/android/i.test(userAgent)) {
+                    instructionsHeader.innerText = 'วิธีเปิดตำแหน่งใน Android';
+                    instructionsText.innerHTML = `
+                        1. ไปที่ <b>การตั้งค่า (Settings) > ตำแหน่ง (Location)</b><br>
+                        2. <b>เปิดใช้งาน</b> ตำแหน่ง<br>
+                        3. ตรวจสอบว่าแอป <b>LINE</b> ได้รับอนุญาตให้เข้าถึงตำแหน่ง<br>
+                        4. กลับมาที่หน้านี้แล้วกด "กลับ" จากนั้นกด "ลองอีกครั้ง"
+                    `;
+                } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                    instructionsHeader.innerText = 'วิธีเปิดตำแหน่งใน iOS (iPhone/iPad)';
+                    instructionsText.innerHTML = `
+                        1. ไปที่ <b>การตั้งค่า (Settings) > ความเป็นส่วนตัวและความปลอดภัย (Privacy & Security)</b><br>
+                        2. แตะที่ <b>บริการหาตำแหน่งที่ตั้ง (Location Services)</b> และเปิดใช้งาน<br>
+                        3. เลื่อนลงหาแอป <b>LINE</b> และอนุญาตให้เข้าถึงตำแหน่ง (เลือก "ขณะใช้แอป")<br>
+                        4. กลับมาที่หน้านี้แล้วกด "กลับ" จากนั้นกด "ลองอีกครั้ง"
+                    `;
+                } else {
+                     instructionsHeader.innerText = 'วิธีเปิดตำแหน่ง';
+                     instructionsText.innerText = 'กรุณาเปิดการตั้งค่าตำแหน่งในเบราว์เซอร์หรือระบบปฏิบัติการของคุณด้วยตนเอง แล้วกลับมากด "ลองอีกครั้ง"';
+                }
+                locationInstructions.classList.remove('hidden');
+            }
+
+            async function attemptToGetLocationAndProceed() {
+                phoneModal.style.display = 'none'; 
+                loadingMessage.innerHTML = '<p>กำลังขออนุญาตเข้าถึงตำแหน่ง... 🗺️</p>';
+                loadingMessage.classList.remove('hidden');
+                showSection('form-section'); 
+
+                try {
+                    const [deviceInfo, position] = await Promise.all([getDeviceInfo(), getCurrentLocation()]);
+                    
+                    formData = {
+                        Phone: document.getElementById('phone').value.trim(),
+                        UUID: deviceInfo.uuid,
+                        Name: deviceInfo.displayName,
+                        Latitude: position.coords.latitude,
+                        Longitude: position.coords.longitude
+                    };
+
+                    loadingMessage.classList.add('hidden');
+                    await startQRScanner();
+
+                } catch (error) {
+                    console.error("Location Error:", error.message);
+                    loadingMessage.classList.add('hidden');
+                    showSection('form-section'); 
+                    
+                    locationErrorText.innerText = `ข้อผิดพลาด: ${error.message}`;
+                    locationModal.style.display = 'flex';
+                }
+            }
+            
+            document.getElementById('nextButton').addEventListener('click', () => {
+                const phoneInput = document.getElementById('phone');
+                if (!phoneInput.checkValidity()) {
+                    alert(phoneInput.title);
+                    return;
+                }
+                document.getElementById('phoneDisplay').innerText = phoneInput.value;
+                phoneModal.style.display = 'flex';
+            });
+            
+            document.getElementById('confirmPhoneButton').addEventListener('click', attemptToGetLocationAndProceed);
+            
+            document.getElementById('retryLocationButton').addEventListener('click', () => {
+                locationModal.style.display = 'none';
+                attemptToGetLocationAndProceed(); 
+            });
+            
+            // --- [โค้ดใหม่] Event Listeners สำหรับ Modal ที่ปรับปรุง ---
+            showInstructionsButton.addEventListener('click', showLocationInstructions);
+            
+            backToPermissionModal.addEventListener('click', () => {
+                locationInstructions.classList.add('hidden');
+                permissionPrompt.classList.remove('hidden');
+            });
+            // --- จบส่วนโค้ดใหม่ ---
+
+            document.getElementById('cancelPhoneButton').addEventListener('click', () => phoneModal.style.display = 'none');
+            document.getElementById('confirmScanButton').addEventListener('click', proceedWithSubmission);
+            document.getElementById('cancelScanButton').addEventListener('click', () => {
+                scanSummaryModal.style.display = 'none';
+                startQRScanner();
+            });
+            retryScanButton.addEventListener('click', startQRScanner);
+
+            main();
+        });
+    </script>
+</body>
+</html>
