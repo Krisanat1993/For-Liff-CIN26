@@ -545,8 +545,8 @@
                 if (liff.isInClient()) {
                     try {
                         await liff.sendMessages([{ type: 'text', text: summaryMessageForLiff }]);
-                        document.getElementById('successMessage').innerText = 'ส่งข้อความสำเร็จ! จะปิดหน้าต่างใน 3 วินาที';
-                        setTimeout(() => liff.closeWindow(), 3000);
+                        document.getElementById('successMessage').innerText = 'ส่งข้อความสำเร็จ! จะปิดหน้าต่างใน 2 วินาที';
+                        setTimeout(() => liff.closeWindow(), 1500);
                     } catch (err) {
                         document.getElementById('successMessage').innerText = `เกิดข้อผิดพลาดในการส่งข้อความ: ${err.message}`;
                     }
